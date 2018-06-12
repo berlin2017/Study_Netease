@@ -15,75 +15,54 @@
         </input-modal>
       </view>
       <!-- 历史消息 -->
-      <!-- <view class='chating-history' catchtap='lookHistoryMessage'>
+       <view class='chating-history' catchtap='lookHistoryMessage'>
         <text class='chating-history-left'>历史消息</text>
         <text class='chating-history-right'>></text>
-      </view> -->
+      </view> 
       <!-- 消息记录 -->
-      <view class='record-wrapper' id="recordWrapper">
-        <view wx:for="{{messageArr}}" wx:for-item="message" wx:key="{{message.time}}" id='item_{{index}}'>
-          <view class='record-item-time-wrapper' wx:if="{{message.content.create_time}}">
-            <text class='record-item-time'>{{message.content.create_time}}</text>
-          </view>
-          <view wx:if="{{message.from_username != toId &&  message.content.from_id!= toId}}" class='record-chatting-item self' style='justify-content: {{message.type === "tip" ? "center" : "flex-end"}}' data-message="{{message}}" bindlongpress='showEditorMenu'>
-
-            <view wx:if="{{message.content.msg_type === 'geo'}}" data-geo='{{message.geo}}' class='small-map-wrapper' catchtap='fullScreenMap'>
-              <image src="{{iconBase64Map.iconMap}}" class='small-geo-img'></image>
-              <text class='text'>{{message.geo.title}}</text>
-            </view>
-
-            <view wx:if="{{message.content.msg_type === 'video'}}" data-video="{{message.video}}" catchtap='requestFullScreenVideo' class='small-video-wrapper'>
-              <view class='video-triangle'></view>
-              <view style='color: #000;'>{{message.video.dur / 1000
-                << 1>> 1}}''</view>
-            </view>
-
-            <view wx:if="{{message.content.msg_type === 'file'}}" class='audio-wrapper' data-audio="{{message.content.msg_body.media_id}}" catchtap='playAudio' style='background-color:rgb(128,161,213);color: #000;'>
-              <image src='{{iconBase64Map.iconVoiceWhite}}' class='image'></image>
-              <!-- <text class='text'>{{message.audio.dur / 1000 << 1 >> 1}}''</text> -->
-              <text class='text'>(((</text>
-            </view>
-
-            <image wx:if="{{message.content.msg_type === 'image'}}" src='{{message.content.msg_body.media_id}}' class='record-chatting-item-text' style='width:{{parseInt(message.content.msg_body.width)/10}}px;height:{{parseInt(message.content.msg_body.height)/10}}px'
-              bindtap='previewImage' data-src='{{message.content.msg_body.media_id}}'></image>
-
-            <rich-text nodes="{{message.nodes}}" wx:if="{{message.content.msg_type === 'text'}}" class='record-chatting-item-text'>{{message.content.msg_body.text}}</rich-text>
-
-            <text wx:if="{{message.content.msg_type !== 'tip'}}" class='right-triangle'></text>
-            <image wx:if="{{message.content.msg_type !== 'tip'}}" src='{{loginAccountLogo}}' catchtap='switchToMyTab' class='record-chatting-item-img'></image>
-          </view>
-
-          <view wx:if="{{message.from_username === toId || message.content.from_id== toId}}" class='record-chatting-item other' style='justify-content: {{message.content.msg_type === "tip" ? "center" : "flex-start"}}' data-message="{{message}}" bindlongpress='showEditorMenu'>
-            <image wx:if="{{message.content.msg_type !== 'tip'}}" catchtap='switchPersonCard' src='{{chatToLogo}}' class='record-chatting-item-img'></image>
-            <text wx:if="{{message.content.msg_type !== 'tip'}}" class='left-triangle'></text>
-
-            <view wx:if="{{message.content.msg_type === 'geo'}}" data-geo='{{message.geo}}' class='small-map-wrapper' catchtap='fullScreenMap'>
-              <image src="{{iconBase64Map.iconMap}}" class='small-geo-img'></image>
-              <text class='text'>{{message.geo.title}}</text>
-            </view>
-
-            <view wx:if="{{message.content.msg_type === 'video'}}" data-video="{{message.video}}" catchtap='requestFullScreenVideo' class='small-video-wrapper'>
-              <view class='video-triangle'></view>
-              <!-- <view style='color: #000;'>{{message.video.dur / 1000
-                << 1>> 1}}''</view> -->
-            </view>
-
-            <view wx:if="{{message.content.msg_type === 'file'}}" data-audio="{{message.content.msg_body.media_id}}" catchtap='playAudio' class='audio-wrapper'>
-              <image src='{{iconBase64Map.iconVoiceGrey}}' class='image'></image>
-              <!-- <text class='text' style='color:#000;'>{{message.audio.dur / 1000 << 1 >> 1}}''</text> -->
-              <text class='text' style='color:#000;'>)))</text>
-            </view>
-
-            <rich-text wx:if="{{message.content.msg_type === 'text'}}" class='record-chatting-item-text' style='color:#000;background-color:#fff;'>{{message.content.msg_body.text}}</rich-text>
-            <image wx:if="{{message.content.msg_type === 'image'}}" src='{{message.content.msg_body.media_id}}' class='record-chatting-item-text' style='width:{{parseInt(message.content.msg_body.width)/10}}px;height:{{parseInt(message.content.msg_body.height)/10}}px'
-              bindtap='previewImage' data-src='{{message.content.msg_body.media_id}}'></image>
-            <rich-text wx:if="{{message.content.msg_type === 'tip'}}" class='tip-rich-text'>{{message.text}}</rich-text>
-          </view>
-
+      <view class='record-wrapper' id="recordWrapper"> 
+    <view wx:for="{{messageArr}}" wx:for-item="message" wx:key="{{message.time}}">
+      <view class='record-item-time-wrapper' wx:if="{{message.displayTimeHeader != ''}}">
+        <text class='record-item-time'>{{message.displayTimeHeader}}</text>
+      </view> 
+      <view wx:if="{{message.sendOrReceive == 'send'}}" class='{{message.sendOrReceive == "send" ? "record-chatting-item self" : ""}}' style='justify-content: {{message.type === "tip" ? "center" : "flex-end"}}' data-message="{{message}}" bindlongpress='showEditorMenu'>
+        <view wx:if="{{message.type === 'geo'}}" data-geo='{{message.geo}}' class='small-map-wrapper' catchtap='fullScreenMap'>
+          <image src="{{iconBase64Map.iconMap}}" class='small-geo-img'></image>
+          <text class='text'>{{message.geo.title}}</text>
         </view>
-
+        <view wx:if="{{message.type === 'video'}}" data-video="{{message.video}}" catchtap='requestFullScreenVideo' class='small-video-wrapper'>
+          <view class='video-triangle'></view>
+          <view style='color: #000;'>{{message.video.dur / 1000 << 1 >> 1}}''</view>
+        </view>
+        <view wx:if="{{message.type === 'audio'}}" class='audio-wrapper' data-audio="{{message.audio}}" catchtap='playAudio' style='background-color:rgb(128,161,213);color: #000;'>
+          <image src='{{iconBase64Map.iconVoiceWhite}}' class='image'></image>
+          <text class='text'>{{message.audio.dur / 1000 << 1 >> 1}}''</text>
+        </view>
+        <rich-text nodes="{{message.nodes}}" wx:if="{{message.type === 'text' || message.type === 'image' || message.type === '猜拳' || message.type === '贴图表情' || message.type === 'file' || message.type === '白板消息' || message.type === '阅后即焚' || message.type === 'robot'}}" class='record-chatting-item-text'>{{message.text}}</rich-text>
+        <rich-text nodes="{{message.nodes}}" wx:if="{{message.type === 'tip'}}" class='tip-rich-text'>{{message.text}}</rich-text>
+        <text wx:if="{{message.type !== 'tip'}}" class='right-triangle'></text>
+        <image wx:if="{{message.type !== 'tip'}}" src='{{loginAccountLogo}}' catchtap='switchToMyTab' class='record-chatting-item-img'></image>
       </view>
-
+      <view wx:if="{{message.sendOrReceive == 'receive'}}" class='{{message.sendOrReceive == "receive" ? "record-chatting-item other" : ""}}' style='justify-content: {{message.type === "tip" ? "center" : "flex-start"}}' data-message="{{message}}"  bindlongpress='showEditorMenu'>
+        <image wx:if="{{message.type !== 'tip'}}" catchtap='switchPersonCard' src='{{chatToLogo}}' class='record-chatting-item-img'></image>
+        <text wx:if="{{message.type !== 'tip'}}" class='left-triangle'></text>
+        <view wx:if="{{message.type === 'geo'}}" data-geo='{{message.geo}}' class='small-map-wrapper' catchtap='fullScreenMap'>
+          <image src="{{iconBase64Map.iconMap}}" class='small-geo-img'></image>
+          <text class='text'>{{message.geo.title}}</text>
+        </view>
+        <view wx:if="{{message.type === 'video'}}" data-video="{{message.video}}" catchtap='requestFullScreenVideo' class='small-video-wrapper'>
+          <view class='video-triangle'></view>
+          <view style='color: #000;'>{{message.video.dur / 1000 << 1 >> 1}}''</view>
+        </view>
+        <view wx:if="{{message.type === 'audio'}}" data-audio="{{message.audio}}" catchtap='playAudio' class='audio-wrapper'>
+          <image src='{{iconBase64Map.iconVoiceGrey}}' class='image'></image>
+          <text class='text' style='color:#000;'>{{message.audio.dur / 1000 << 1 >> 1}}''</text>
+        </view>
+        <rich-text nodes="{{message.nodes}}" wx:if="{{message.type === 'text' || message.type === 'image' || message.type === '猜拳' || message.type === '贴图表情' || message.type === 'file' || message.type === '白板消息' || message.type === '阅后即焚' || message.type === 'robot'}}" class='record-chatting-item-text' style='color:#000;background-color:#fff;'>{{message.text}}</rich-text>
+        <rich-text nodes="{{message.nodes}}" wx:if="{{message.type === 'tip'}}" class='tip-rich-text'>{{message.text}}</rich-text>
+      </view>
+    </view>
+   </view>
 
       <!--底部输入框  -->
       <view class='chatinput-wrapper' style='margin-bottom: {{focusFlag ? 20 : 0}}rpx;' catchtap='stopEventPropagation'>

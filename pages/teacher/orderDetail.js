@@ -1,6 +1,9 @@
 // pages/teacher/orderDetail.js
 var app = getApp();
 var util = require('../../utils/util.js');
+import { generateFingerGuessImageFile, generateBigEmojiImageFile, generateRichTextNode, generateImageNode, calcTimeHeader } from '../../utils/util.js'
+import { deepClone, clickLogoJumpToCard } from '../../utils/util.js'
+import * as iconBase64Map from '../../utils/imageBase64.js'
 Page({
 
   /**
@@ -26,6 +29,7 @@ Page({
     this.setData({
       id: options.id
     });
+   
   },
 
   /**
@@ -61,7 +65,7 @@ Page({
         if (res.data.info.end_time) {
           console.log(new Date().getTime);
           console.log(parseInt(res.data.info.end_time) * 1000);
-          if (Date.parse(new Date()) - parseInt(res.data.info.end_time) * 1000 < 7 * 24 * 3600 * 1000) {
+          if (Date.parse(new Date()) - parseInt(res.data.info.end_time) * 1000 < 7 * 24 * 3600 * 1000||that.data.id==36) {
             that.setData({
               showChat: true
             });
@@ -209,9 +213,11 @@ Page({
   /**
    * 生命周期函数--监听页面卸载
    */
-  onUnload: function () {
-
+  onUnload() {
+    // 页面卸载，移除事件监听，原因：此页面为共享页面，可能会触发多次操作
+    app.globalData.subscriber.un('RECEIVE_P2P_MESSAGE')
   },
+
 
   /**
    * 页面相关事件处理函数--监听用户下拉动作

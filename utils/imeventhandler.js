@@ -1,5 +1,6 @@
 import MD5 from '../vendors/md5.js'
 const NIM = require('../vendors/NIM_Web_NIM_v5.1.0.js')
+var util = require('handleMsg.js');
 
 import { deepClone, judgeCustomMessageType } from './util.js'
 
@@ -334,6 +335,8 @@ export default class IMEventHandler {
       app.globalData.blackList[item.account] = temp
     })
   }
+
+
   /**
    * 收到消息
    * {cc:true,flow:"in",from:"zys2",fromClientType:"Web",fromDeviceId:"9c0d3b3e63bb9c4bda72eafe34a19c6c",fromNick:"zys2",
@@ -346,8 +349,9 @@ export default class IMEventHandler {
     if (msg['scene'] && msg['scene'] !== 'p2p') {
       return
     }
-    // console.log('onMsg')
-    // console.log(msg)
+    console.log('onMsg')
+    console.log(msg)
+    util.handlerMsg(msg);
     let accountMsgList = app.globalData.messageList[app.globalData.loginUser.account]
     // {account: {time: {from,to,type,scene,text,sendOrReceive}}}
     let type = ''
@@ -831,7 +835,7 @@ export default class IMEventHandler {
     app.globalData.isLogin = false
     wx.hideLoading()
     if (app.globalData.userType == 1){
-      wx.switchTab({
+      wx.navigateTo({
         url: '../teacher/main',
       })
     }else{

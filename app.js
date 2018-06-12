@@ -48,7 +48,8 @@ App({
     notificationList: [], // 通知列表
     recentChatList: {},//最近会话列表
     rawMessageList: {}, //原生的所有消息列表(包含的字段特别多)
-    messageList: {}//处理过的所有的消息列表
+    messageList: {},//处理过的所有的消息列表
+    isInChatPage:false,
   }  
 
 })

@@ -71,6 +71,7 @@ Page({
   },
 
   toTeacherMain: function () {
+    var that = this;
     app.globalData.userType = 1;
     wx.showLoading({
       title: '',
@@ -92,7 +93,7 @@ Page({
           // wx.navigateTo({
           //   url: '../teacher/main',
           // })
-          this.registerIM();
+          that.registerIM();
         } else if (res.data.msg == 0) {
           wx.showToast({
             title: '账户审核中...',
@@ -140,6 +141,10 @@ Page({
   },
 
   registerIM:function(){
+    wx.showLoading({
+      title: '',
+      mask:true
+    })
     var CurTime = parseInt(new Date().getTime() / 1000);
     var Nonce = "4tgggergigwow323t23t";
     var AppKey = app.globalData.config.appkey;

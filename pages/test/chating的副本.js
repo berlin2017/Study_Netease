@@ -1,47 +1,308 @@
-import { generateFingerGuessImageFile, generateBigEmojiImageFile, generateRichTextNode, generateImageNode, calcTimeHeader } from '../../utils/util.js'
-import { deepClone, clickLogoJumpToCard } from '../../utils/util.js'
-import * as iconBase64Map from '../../utils/imageBase64.js'
-
 var app = getApp()
+var util = require('../../utils/util.js');
+var JMessage = require('../../jpush/jmessage-wxapplet-sdk-1.4.0.min.js')
+var md5 = require('../../jpush/md5.js')
+
 Page({
   data: {
-    defaultUserLogo: '/images/default-icon.png',
-    videoContext: null, // 视频操纵对象
-    isVideoFullScreen: false, // 视频全屏控制标准
-    videoSrc: '', // 视频源
-    recorderManager: null, // 微信录音管理对象
-    recordClicked: false, // 判断手指是否触摸录音按钮
-    iconBase64Map: {}, //发送栏base64图标集合
-    isLongPress: false, // 录音按钮是否正在长按
-    chatWrapperMaxHeight: 0,// 聊天界面最大高度
-    chatTo: '', //聊天对象
-    chatToLogo: '', // 聊天对象头像
-    loginAccountLogo: '',  // 登录账户对象头像
-    focusFlag: false,//控制输入框失去焦点与否
-    emojiFlag: false,//emoji键盘标志位
-    moreFlag: false, // 更多功能标志
-    tipFlag: false, // tip消息标志
+    orderId: null,
+    chatToLogo: '',
+    toId: '',
+    toNickName: '',
+    title: '聊天室',
+    inputValue: '',
     tipInputValue: '', // tip消息文本框内容
     sendType: 0, //发送消息类型，0 文本 1 语音
     messageArr: [], //[{text, time, sendOrReceive: 'send', displayTimeHeader, nodes: []},{type: 'geo',geo: {lat,lng,title}}]
     inputValue: '',//文本框输入内容
-    orderId: null,
-    toId: '',
-    toNickName: '',
+    focusFlag: false,//控制输入框失去焦点与否
+    user_type: null,
+    showCall: false,
+    loginAccountLogo: null,
+    botoom_view: null,
+    height: 0,
     showInvite: false,
     call_type: 0,
     calling: false,
     frontCamera: true,
-    user_type: null,
-    customString:'',
   },
+
+  onShow: function () {
+  
+  },
+
+  onHide: function () {
+   
+  },
+
   onUnload() {
-    // 页面卸载，移除事件监听，原因：此页面为共享页面，可能会触发多次操作
-    app.globalData.subscriber.un('RECEIVE_P2P_MESSAGE')
-    app.globalData.subscriber.un('OPPOSITE_RECALL_WHEN_CHATTING')
-    // 更新当前会话对象账户
-    app.globalData.currentChatTo = ''
+    console.log('onUnload');
+    this.setData({
+      showInvite: false,
+      showCall: false,
+      calling: false
+    });
     app.globalData.isInChatPage = false;
+    wx.setKeepScreenOn({
+      keepScreenOn: false,
+    })
+  },
+  /**
+   * 生命周期函数--监听页面加载
+   */
+  onLoad: function (options) {
+    console.log(options);
+    this.setData({
+      toId: options.id,
+      user_type: options.type,
+      orderId: options.orderId,
+    });
+    if (options.call_type) {
+      this.setData({
+        showInvite: true,
+        call_type: options.call_type,
+        showCall: false,
+        calling: false
+      });
+    }
+    this.requestUserInfo();
+
+    app.globalData.isInChatPage = true;
+    wx.setKeepScreenOn({
+      keepScreenOn: true,
+    })
+    
+  },
+
+  onReady: function () {
+
+  },
+
+  initJMessage: function (e) {
+    wx.showLoading({
+      title: '',
+      mask: true,
+    })
+    var that = this;
+    //jpush
+    var jim = new JMessage({
+      // debug : true
+    });
+    var time = Date.parse(new Date());
+    var random_str = "022cd9fd995849b";
+    var s = "appkey=" + "20a1f8331c8e462116c4d24e" + "&timestamp=" + time + "&random_str=" + random_str + "&key=fc92fd7140c3e9b228d368fb"
+    var signature = md5.hexMD5(s);
+    jim.init({
+      "appkey": "20a1f8331c8e462116c4d24e",
+      "random_str": random_str,
+      "signature": signature,
+      "timestamp": time,
+      "flag": 1,
+    }).onSuccess(function (data) {
+      //TODO
+      that.setData({
+        aa: 'aa'
+      });
+      console.log('im初始化成功');
+      app.globalData.jim = jim;
+   
+      that.loginJMessage(app.globalData.myUser.openId);
+    }).onFail(function (data) {
+      //TODO
+      console.log('im初始化失败');
+      that.initJMessage();
+    });
+    app.globalData.jim.onDisconnect(function(){
+      console.log('onDisconnect');
+      // that.initJMessage();
+    });
+  },
+
+  loginJMessage: function (username) {
+    var that = this;
+    app.globalData.jim.login({
+      'username': username,
+      'password': 'ah123456'
+    }).onSuccess(function () {
+      wx.showToast({
+        title: '登录成功',
+      })
+      that.setData({
+        aa:'aa'
+      });
+      wx.hideLoading();
+      that.intMsgReceive2();
+      that.getMessage2();
+    }).onFail(function (data) {
+      //同上
+      console.log(data);
+      that.loginJMessage(username);
+
+    });
+  },
+
+  intMsgReceive2(){
+    var that = this;
+    app.globalData.jim.onMsgReceive(function (data) {
+      that.handlerMessage(data);
+    });
+  },
+
+  loadHistory:function(data){
+    
+  },
+
+
+  getMessage2: function () {
+    wx.showLoading({
+      title: '',
+      mask:true,
+    });
+
+    var that = this;
+    that.setData({
+      aa: 'a'
+    });
+    app.globalData.jim.onSyncConversation(function (data1) {
+      wx.hideLoading();
+      console.log("离线消息");
+      console.log(data1);
+      if (data1.length > 0) {
+        that.getOrderMsg2(data1);
+      }
+    });
+  },
+
+ 
+
+  switchCamera:function(){
+    console.log('切换摄像头');
+    var pushcontext = wx.createLivePusherContext('camera-push1')
+    this.data.frontCamera = !this.data.frontCamera;
+    this.setData({
+      frontCamera: this.data.frontCamera
+    })
+    pushcontext.switchCamera();
+  },
+
+  endCall: function () {
+    this.setData({
+      showInvite: false,
+      showCall: false,
+      calling: false
+    });
+    if (this.data.call_type == 0) {
+      this.sendRequest('结束语音通话');
+    } else if (this.data.call_type == 1) {
+      this.sendRequest('结束视频通话');
+    }
+  },
+
+  cancelInvite: function () {
+    this.setData({
+      showInvite: false
+    });
+    if (this.data.call_type == 0) {
+      this.sendRequest('拒绝语音通话');
+    } else if (this.data.call_type == 1) {
+      this.sendRequest('拒绝视频通话');
+    }
+
+  },
+
+  acceptInvite: function () {
+    this.setData({
+      showInvite: false,
+      calling: true
+    });
+
+    if (this.data.call_type == 0) {
+      this.sendRequest('接受语音通话');
+    } else if (this.data.call_type == 1) {
+      this.sendRequest('接受视频通话');
+    }
+  },
+
+  cancelCall: function () {
+    this.setData({
+      showCall: false,
+      showInvite: false,
+      calling: false
+    });
+    if (this.data.call_type == 0) {
+      this.sendRequest('取消语音通话');
+    } else if (this.data.call_type == 1) {
+      this.sendRequest('取消视频通话');
+    }
+  },
+
+  showCall: function (e) {
+
+    var type = e.currentTarget.dataset.type;
+    this.setData({
+      call_type: type
+    });
+    this.requestUserInfo(type);
+    // if(type == 2){
+    //  this.requestAuth();
+    // }else{
+    //   this.requestUserInfo(type);
+    // }
+
+  },
+
+  requestAuth() {
+    // console.log('长按开始', new Date().getTime())
+    let self = this
+    // console.log('长按按钮')
+    wx.getSetting({
+      success: (res) => {
+        let recordAuth = res.authSetting['scope.camera']
+        if (recordAuth == false) { //已申请过授权，但是用户拒绝
+          wx.openSetting({
+            success: function (res) {
+              let recordAuth = res.authSetting['scope.camera']
+              if (recordAuth == true) {
+                wx.showToast({
+                  title: '授权成功',
+                  icon: 'success',
+                  duration: 2000
+                })
+              } else {
+                wx.showToast({
+                  title: '请授权相机',
+                  icon: 'none',
+                  duration: 2000
+                })
+              }
+              self.setData({
+                isLongPress: false
+              })
+            }
+          })
+        } else if (recordAuth == true) { // 用户已经同意授权
+          this.requestUserInfo(type);
+        } else { // 第一次进来，未发起授权
+          wx.authorize({
+            scope: 'scope.camera',
+            success: () => {//授权成功
+              wx.showToast({
+                title: '授权成功',
+                icon: 'success',
+                duration: 2000
+              })
+            }
+          })
+        }
+      },
+      fail: function () {
+        wx.showToast({
+          title: '鉴权失败，请重试',
+          icon: 'none',
+          duration: 2000
+        })
+      }
+    })
   },
 
   requestUserInfo: function (e) {
@@ -89,13 +350,13 @@ Page({
             otherPlay: res.data.student_info.play,
             otherPush: res.data.student_info.push,
           });
-          if (res.data.student_info.realname) {
+          if (res.data.student_info.realname){
             that.setData({
               title: res.data.student_info.realname
             });
           }
 
-
+         
         } else {
           that.setData({
             chatToLogo: res.data.teacher_info.pic,
@@ -113,442 +374,290 @@ Page({
           }
         }
 
-        // //发送视频通话
-        // if (e == 0) {
-        //   that.setData({
-        //     showCall: true
-        //   });
-        //   that.sendRequest('发起语音通话');
+        //发送视频通话
+        if (e == 0) {
+          that.setData({
+            showCall: true
+          });
+          that.sendRequest('发起语音通话');
 
-        // } else if (e == 1) {
-        //   that.setData({
-        //     showCall: true
-        //   });
-        //   that.sendRequest('发起视频通话');
-        // }
-
+        } else if (e == 1) {
+          that.setData({
+            showCall: true
+          });
+          that.sendRequest('发起视频通话');
+        }
+        that.initJMessage();
       },
     })
   },
 
-  /**
-   * 生命周期函数--监听页面加载
-   */
-  onLoad: function (options) {
-    app.globalData.isInChatPage = true;
-    let order_obj = {'orderId':options.orderId}
-    this.setData({
-      toId: options.id.toLowerCase(),
-      user_type: options.type,
-      orderId: options.orderId,
-      customString: JSON.stringify(order_obj)
-    });
-  
-    this.requestUserInfo();
+  handlerMessage:function(data){
+    console.log(data);
+    var that = this;
+    for (var index in data.messages) {
+      that.addOtherMsg(data.messages[index]);
+      if (!app.globalData.isInChatPage) {
+        if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '发起视频通话') {
+          console.log('发起视频通话');
+          wx.navigateTo({
+            url: '../test/chating' + '?id=' + data.messages[0].content.from_id + '&type=' + app.globalData.userType + '&orderId=' + data.messages[index].content.msg_body.extras.orderId + '&call_type=1',
+          })
+          return;
+        } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '发起语音通话') {
+          console.log('发起语音通话');
+          wx.navigateTo({
+            url: '../test/chating' + '?id=' + data.messages[0].content.from_id + '&type=' + app.globalData.userType + '&orderId=' + data.messages[index].content.msg_body.extras.orderId + '&call_type=0',
+          })
+          return;
+        }
+        wx.showModal({
+          title: '新消息',
+          content: '来自' + data.messages[0].content.from_name + '是否查看',
+          success: function (res) {
+            if (res.confirm) {
+              console.log('用户点击确定')
+              wx.navigateTo({
+                url: '../test/chating' + '?id=' + data.messages[index].content.from_id + '&type=' + app.globalData.userType + '&orderId=' + data.messages[index].content.msg_body.extras.orderId,
+              })
+            } else if (res.cancel) {
+              console.log('用户点击取消')
+            }
+          }
+        })
+      } else if (data.messages[index].from_username!=that.data.toId){
+        wx.showModal({
+          title: '新消息',
+          content: '来自' + data.messages[0].content.from_name + '是否查看',
+          success: function (res) {
+            if (res.confirm) {
+              console.log('用户点击确定')
+              wx.navigateTo({
+                url: '../test/chating' + '?id=' + data.messages[index].content.from_id + '&type=' + app.globalData.userType + '&orderId=' + data.messages[index].content.msg_body.extras.orderId,
+              })
+            } else if (res.cancel) {
+              console.log('用户点击取消')
+            }
+          }
+        })
+      }
+    
 
-    // console.log('聊天界面', options)
-    // console.log(app.globalData.messageList[app.globalData['loginUser']['account']])
-    let chatWrapperMaxHeight = wx.getSystemInfoSync().windowHeight - 52 - 35
+      if (data.messages[index].from_username == that.data.toId) {
 
-    // 初始化聊天对象
-    let self = this,
-      tempArr = [],
-      chatTo = options.id.toLowerCase();
-    // 更新当前会话对象账户
-    app.globalData.currentChatTo = chatTo
-   
-    // 渲染应用期间历史消息
-    let loginUserAccount = app.globalData['loginUser']['account']
-    let loginMessageList = app.globalData.messageList[loginUserAccount]
-    if (Object.keys(loginMessageList).length != 0) {
-      let chatToMessageList = loginMessageList[chatTo]
-      for (let time in chatToMessageList) {
-        let msgType = chatToMessageList[time].type
-        if (msgType === 'text') {
-          tempArr.push({
-            type: 'text',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateRichTextNode(chatToMessageList[time].text)
-          })
-        } else if (msgType === 'image') {
-          tempArr.push({
-            type: 'image',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(chatToMessageList[time].file)
-          })
-        } else if (msgType === 'geo') {
-          tempArr.push({
-            type: 'geo',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            geo: chatToMessageList[time].geo
-          })
-        } else if (msgType === 'audio') {
-          tempArr.push({
-            type: 'audio',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            audio: chatToMessageList[time].file
-          })
-        } else if (msgType === 'video') {
-          tempArr.push({
-            type: 'video',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            video: chatToMessageList[time].file
-          })
-        } else if (msgType === '猜拳') {
-          let value = JSON.parse(chatToMessageList[time]['content']).data.value
-          tempArr.push({
-            type: '猜拳',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(generateFingerGuessImageFile(value))
-          })
-        } else if (msgType === '贴图表情') {
-          let content = JSON.parse(chatToMessageList[time]['content'])
-          tempArr.push({
-            type: '贴图表情',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(generateBigEmojiImageFile(content))
-          })
-        } else if (msgType === 'tip') {
-          tempArr.push({
-            type: 'tip',
-            text: chatToMessageList[time].tip,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: chatToMessageList[time].tip
-            }]
-          })
-        } else if (msgType === 'file' || msgType === 'robot') {
-          let text = msgType === 'file' ? '文件消息' : '机器人消息'
-          tempArr.push({
-            type: msgType,
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: `[${text}],请到手机或电脑客户端查看`
-            }]
-          })
-        } else if (msgType === '白板消息' || msgType === '阅后即焚') {
-          tempArr.push({
-            type: msgType,
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: `[${msgType}],请到手机或电脑客户端查看`
-            }]
-          })
+        if (data.messages[index].content.msg_type === 'image' || data.messages[index].content.msg_type === 'file') {
+          app.globalData.jim.getResource({
+            'media_id': data.messages[index].content.msg_body.media_id,
+          }).onSuccess(function (res) {
+            //data.code 返回码
+            //data.message 描述
+            //data.url 资源临时访问路径
+            data.messages[index].content.msg_body.media_id = res.url;
+            data.messages[index].content.create_time = util.formatTime(new Date(data.messages[index].content.create_time));
+            that.data.messageArr.push(data.messages[index]);
+            that.setData({
+              messageArr: history,
+            });
+            that.scrollToBottom();
+            console.log('------总消息-----');
+            console.log(history);
+          }).onFail(function (res) {
+            //data.code 返回码
+            //data.message 描述
+          });
+        } else {
+          if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '发起视频通话') {
+            console.log('发起视频通话');
+            that.setData({
+              showInvite: true,
+              call_type: 1,
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '发起语音通话') {
+            console.log('发起语音通话');
+            that.setData({
+              showInvite: true,
+              call_type: 0,
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '拒绝语音通话') {
+            console.log('拒绝语音通话');
+            that.setData({
+              showCall: false,
+              showInvite: false,
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '拒绝视频通话') {
+            console.log('拒绝视频通话');
+            that.setData({
+              showCall: false,
+              showInvite: false,
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '接受语音通话') {
+            console.log('接受语音通话');
+            that.setData({
+              calling: true,
+              showCall: false,
+              showInvite: false,
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '接受视频通话') {
+            console.log('接受视频通话');
+            that.setData({
+              calling: true,
+              showCall: false,
+              showInvite: false,
+            });
+          }
+          else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '结束语音通话') {
+            console.log('结束语音通话');
+            that.setData({
+              showInvite: false,
+              showCall: false,
+              calling: false
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '结束视频通话') {
+            console.log('结束视频通话');
+            that.setData({
+              showInvite: false,
+              showCall: false,
+              calling: false
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '取消语音通话') {
+            console.log('取消语音通话');
+            that.setData({
+              showInvite: false,
+              showCall: false,
+              calling: false
+            });
+          } else if (data.messages[index].content.msg_type === 'text' && data.messages[index].content.msg_body.text === '取消视频通话') {
+            console.log('取消视频通话');
+            that.setData({
+              showInvite: false,
+              showCall: false,
+              calling: false
+            });
+          }
+          data.messages[index].content.create_time = util.formatTime(new Date(data.messages[index].content.create_time));
+          that.data.messageArr.push(data.messages[index]);
+          that.setData({
+            messageArr: that.data.messageArr,
+          });
+          that.scrollToBottom();
+          
+
+        }
+
+      }
+    }
+  },
+
+  addOtherMsg:function(msg){
+    var that = this;
+    var history = wx.getStorageSync("allMessage");
+    if (!history || history == '') {
+      history = [];
+    }
+
+    if (history.length == 0 || !that.hasOldMsg(history, msg.from_username)) {
+      var item = {};
+      item.form_appkey = "20a1f8331c8e462116c4d24e";
+      item.from_username = msg.from_username;
+      item.msg_type = 3;
+      // var message = {};
+      // message.content = msg.content;
+      item.msgs = [msg];
+      history.push(msg);
+    } else {
+      for (var index in history) {
+        if (history[index].from_username == msg.from_username) {
+          var item = history[index].msgs[0];
+          item.content = msg.content;
+          history[index].msgs.push(item);
         }
       }
     }
-    this.setData({
-      chatTo,
-      messageArr: tempArr,
-      chatWrapperMaxHeight,
-      iconBase64Map: iconBase64Map
-    })
-    // 重新计算所有时间
-    self.reCalcAllMessageTime()
-    // 滚动到底部
-    self.scrollToBottom()
-    // 聊天时对方撤回消息
-    app.globalData.subscriber.on('OPPOSITE_RECALL_WHEN_CHATTING', ({ account, time, tip }) => {
-      if (self.data.chatTo !== account) {// 非当前聊天人消息
-        return
-      }
-      // 收起可能展开的聊天框
-      this.foldInputArea()
 
-      let loginUserAccount = app.globalData['loginUser']['account']
-      let newMessage = app.globalData.messageList[loginUserAccount][account][time]
+    wx.setStorageSync("allMessage", history);
+  },
 
-      let messageArr = [...self.data.messageArr]
-      let pos = null
-      messageArr.map((item, index) => {
-        if (parseInt(item.time) === parseInt(time)) {
-          pos = index
+
+  getOrderMsg2:function(data1){
+    var that = this;
+    var array1 = new Array();
+    
+    for(var item of data1){
+      if(item.from_username == that.data.toId){
+        if(item.msgs.length == 0){
+          continue;
         }
-      })
+        for (var item2 of item.msgs) {
+          try{
+            if (item2.content.msg_body.extras.orderId == that.data.orderId) {
+              item2.content.create_time = util.formatTime(new Date(item2.content.create_time));
+              array1.push(item2);
+            }
+          }catch(e){
 
-      messageArr[pos]['type'] = 'tip'
-      messageArr[pos]['nodes'] = [{
-        type: 'text',
-        text: tip
-      }]
-
-      self.setData({
-        messageArr
-      })
-    })
-
-    // 监听p2p消息
-    app.globalData.subscriber.on('RECEIVE_P2P_MESSAGE', ({ account, time }) => {
-      if (self.data.chatTo.toLowerCase() !== account) {// 非当前聊天人消息
-        return
-      }
-      // 收起可能展开的聊天框
-      this.foldInputArea()
-      let loginUserAccount = app.globalData['loginUser']['account']
-      let newMessage = app.globalData.messageList[loginUserAccount][account][time]
-      let lastMessage = self.data.messageArr[self.data.messageArr.length - 1]
-      let displayTimeHeader = ''
-      if (lastMessage) {//拥有上一条消息
-        let delta = time - lastMessage.time
-        if (delta > 2 * 60 * 1000) {//超过两分钟
-          displayTimeHeader = calcTimeHeader(time)
+          }
         }
-      } else {//没有上一条消息
-        displayTimeHeader = calcTimeHeader(time)
+        console.log(array1);
       }
-      // 刷新视图
-      if (newMessage.type === 'text') {
+    }
 
-        //判断是否语音通话
+    that.setData({
+      messageArr: array1,
+    });
+    that.scrollToBottom();
+    that.handleSource2(array1);
+  },
 
-        if (newMessage.text === '发起视频通话') {
-          console.log('发起视频通话');
-          self.setData({
-            showInvite: true,
-            call_type: 1,
-          });
-        } else if (newMessage.text === '发起语音通话') {
-          console.log('发起语音通话');
-          self.setData({
-            showInvite: true,
-            call_type: 0,
-          });
-        } else if (newMessage.text === '拒绝语音通话') {
-          console.log('拒绝语音通话');
-          self.setData({
-            showCall: false,
-            showInvite: false,
-          });
-        } else if (newMessage.text === '拒绝视频通话') {
-          console.log('拒绝视频通话');
-          self.setData({
-            showCall: false,
-            showInvite: false,
-          });
-        } else if (newMessage.text === '接受语音通话') {
-          console.log('接受语音通话');
-          self.setData({
-            calling: true,
-            showCall: false,
-            showInvite: false,
-          });
-        } else if (newMessage.text === '接受视频通话') {
-          console.log('接受视频通话');
-          self.setData({
-            calling: true,
-            showCall: false,
-            showInvite: false,
+  handleSource2: function (data) {
+    var that = this;
+    for(var i in data){
+      (function (index) {//index为循环中传入的参数 
+        if (data[index].content.msg_type === 'image' || data[index].content.msg_type === 'file') {
+          app.globalData.jim.getResource({
+            'media_id': data[index].content.msg_body.media_id,
+          }).onSuccess(function (res) {
+            //data.code 返回码
+            //data.message 描述
+            //data.url 资源临时访问路径
+            data[index].content.msg_body.media_id = res.url;
+            that.setData({
+              messageArr: data,
+            });
+            // try{
+            //   that.handerSource(data);
+            // }catch(e){
+
+            // }
+            
+          }).onFail(function (res) {
+            //data.code 返回码
+            //data.message 描述
           });
         }
-        else if (newMessage.text === '结束语音通话') {
-          console.log('结束语音通话');
-          self.setData({
-            showInvite: false,
-            showCall: false,
-            calling: false
-          });
-        } else if (newMessage.text === '结束视频通话') {
-          console.log('结束视频通话');
-          self.setData({
-            showInvite: false,
-            showCall: false,
-            calling: false
-          });
-        } else if (newMessage.text === '取消语音通话') {
-          console.log('取消语音通话');
-          self.setData({
-            showInvite: false,
-            showCall: false,
-            calling: false
-          });
-        } else if (newMessage.text === '取消视频通话') {
-          console.log('取消视频通话');
-          self.setData({
-            showInvite: false,
-            showCall: false,
-            calling: false
-          });
-        }
+      })(i); 
+     
+    }
+  
+  },
 
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'text',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: generateRichTextNode(newMessage.text)
-          }]
-        })
-      } else if (newMessage.type === 'image') {
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'image',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: generateImageNode(newMessage.file)
-          }]
-        })
-      } else if (newMessage.type === 'geo') {
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'geo',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            geo: newMessage.geo
-          }]
-        })
-      } else if (newMessage.type === 'audio') {
-        // file: {dur,ext,md5,mp3Url,size,url}
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'audio',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            audio: newMessage.file
-          }]
-        })
-      } else if (newMessage.type === 'video') {
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'video',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            video: newMessage.file
-          }]
-        })
-      } else if (newMessage.type === '猜拳') {
-        let value = JSON.parse(newMessage.content).data.value
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: '猜拳',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: generateImageNode(generateFingerGuessImageFile(value))
-          }]
-        })
-      } else if (newMessage.type === '贴图表情') {
-        let content = JSON.parse(newMessage.content)
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: '贴图表情',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: generateImageNode(generateBigEmojiImageFile(content))
-          }]
-        })
-      } else if (newMessage.type === 'tip') {
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: 'tip',
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: [{
-              type: 'text',
-              text: newMessage.tip
-            }]
-          }]
-        })
-      } else if (newMessage.type === 'file' || newMessage.type === 'robot') {
-        let text = newMessage.type === 'file' ? '文件消息' : '机器人消息'
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: newMessage.type,
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: [{
-              type: 'text',
-              text: `[${text}],请到手机或电脑客户端查看`
-            }]
-          }]
-        })
-      } else if (newMessage.type === '白板消息' || newMessage.type === '阅后即焚') {
-        this.setData({
-          messageArr: [...this.data.messageArr, {
-            type: newMessage.type,
-            text: newMessage.text,
-            time,
-            sendOrReceive: newMessage.sendOrReceive,
-            displayTimeHeader,
-            nodes: [{
-              type: 'text',
-              text: `[${newMessage.type}],请到手机或电脑客户端查看`
-            }]
-          }]
-        })
-      }
 
-      // 添加全局数据中 消息时间头，同时存储到最近会话列表中
-      let loginMessageList = app.globalData.messageList[loginUserAccount]
-      let recentChatList = app.globalData.recentChatList
-      let chatToAccount = null
-      if (!loginMessageList[self.data.chatTo]) {
-        loginMessageList[self.data.chatTo] = {} //开始未收到任何消息
-        recentChatList[self.data.chatTo] = {} //存储到最近会话列表中
-      }
-      // chatToAccount = loginMessageList[self.data.chatTo]
-      // chatToAccount[time]['displayTimeHeader'] = displayTimeHeader
-      // app.globalData.recentChatList[self.data.chatTo][time]['displayTimeHeader'] = displayTimeHeader
-
-      // 滚动到页面底部
-      self.scrollToBottom()
+  previewImage: function (e) {
+    var src = e.currentTarget.dataset.src;
+    wx.previewImage({
+      urls: [src],
     })
   },
+
   /**
-   * 滚动页面到底部
-   */
+ * 滚动页面到底部
+ */
   scrollToBottom() {
     let self = this
     wx.createSelectorQuery().select('#recordWrapper').boundingClientRect(function (rect) {
       // console.log(rect)
+      if (!rect) {
+        return;
+      }
       if (self.data.emojiFlag || self.data.moreFlag || self.data.focusFlag) {
         wx.pageScrollTo({
           scrollTop: rect.height + 550,
@@ -556,12 +665,14 @@ Page({
         })
       } else {
         wx.pageScrollTo({
-          scrollTop: rect.height + 100,
+          scrollTop: rect.height + 64,
           duration: 100
         })
       }
+
     }).exec()
   },
+
   /**
    * 收起所有输入框
    */
@@ -620,11 +731,12 @@ Page({
     })
     let audio = e.currentTarget.dataset.audio
     const audioContext = wx.createInnerAudioContext()
-    if (audio.ext === 'mp3') { // 小程序发送的
-      audioContext.src = audio.url
-    } else {
-      audioContext.src = audio.mp3Url
-    }
+    // if (audio.ext === 'mp3') { // 小程序发送的
+    //   audioContext.src = audio.url
+    // } else {
+    //   audioContext.src = audio.mp3Url
+    // }
+    audioContext.src = audio;
     audioContext.play()
     audioContext.onPlay(() => {
     })
@@ -1140,16 +1252,35 @@ Page({
    * 选择相册图片
    */
   chooseImageToSend(e) {
+
+    var that = this;
     let type = e.currentTarget.dataset.type
     let self = this
     self.setData({
       moreFlag: false
     })
+    //先通过小程序API获取图片
     wx.chooseImage({
-      sourceType: ['album'],
+      count: 1, //
+      sizeType: ['original', 'compressed'], // 可以指定是原图还是压缩图，默认二者都有
+      sourceType: ['album', 'camera'], // 可以指定来源是相册还是相机，默认二者都有
       success: function (res) {
-        self.sendImageToNOS(res)
-      },
+        var tempFilePaths = res.tempFilePaths[0]; //获取成功，读取文件路径
+        app.globalData.jim.sendSinglePic({
+          'target_username': self.data.toId,
+          'target_nickname': self.data.toNickName,
+          'appkey': '20a1f8331c8e462116c4d24e',
+          'image': tempFilePaths, //设置图片参数，
+          'extras': { orderId: that.data.orderId },
+        }).onSuccess(function (data, msg) {
+          //TODO
+          console.log("发送成功");
+          that.addSelfMsg(msg);
+        }).onFail(function (data) {
+          //TODO
+          console.log("发送失败");
+        });
+      }
     })
   },
   /**
@@ -1160,25 +1291,26 @@ Page({
     self.setData({
       moreFlag: false
     })
-    wx.showActionSheet({
-      itemList: ['照相', '视频'],
+    //单聊发送视频示例,群聊、聊天室类似
+    //先通过小程序API获取视频资源
+    wx.chooseVideo({
+      sourceType: ['album', 'camera'],
+      camera: 'back',
       success: function (res) {
-        if (res.tapIndex === 0) { // 相片
-          wx.chooseImage({
-            sourceType: ['camera'],
-            success: function (res) {
-              self.sendImageToNOS(res)
-            },
-          })
-        } else if (res.tapIndex === 1) { // 视频
-          wx.chooseVideo({
-            sourceType: ['camera', 'album'],
-            success: function (res) {
-              // {duration,errMsg,height,size,tempFilePath,width}
-              self.sendVideoToNos(res)
-            }
-          })
-        }
+        //sendGroupVedio(),sendChatroomVedio()类似
+        app.globalData.jim.sendSingleVedio({
+          'target_username': self.data.toId,
+          'target_nickname': self.data.toNickName,
+          'appkey': '20a1f8331c8e462116c4d24e',
+          'file': res.tempFilePath,
+          'extras': { orderId: that.data.orderId },
+        }).onSuccess(function (data, msg) {
+          //TODO
+          console.log("发送成功");
+        }).onFail(function (data) {
+          //TODO
+          console.log("发送失败");
+        });
       }
     })
   },
@@ -1274,7 +1406,7 @@ Page({
           })
         } else if (res.tapIndex == 1) {//查看云消息记录
           wx.navigateTo({
-            url: `../historyfromcloud/historyfromcloud?account=${self.data.chatTo}&chatToLogo=${encodeURIComponent(self.data.chatToLogo)}&loginAccountLogo=${encodeURIComponent(self.data.loginAccountLogo)}`,
+            url: `../historyfromcloud/historyfromcloud?account=${self.data.chatTo}&chatToLogo=${encodeURIComponent(self.data.chatToLogo)}`,
           })
         }
       }
@@ -1343,6 +1475,7 @@ Page({
   sendBigEmoji(val) {
     wx.showLoading({
       title: '发送中...',
+      mask: true,
     })
     let self = this
     let catalog = ''
@@ -1462,8 +1595,8 @@ Page({
     })
   },
   /**
- * 点击发送tip按钮
- */
+  * 点击发送tip按钮
+  */
   tipInputConfirm() {
     let self = this
     if (self.data.tipInputValue.length !== 0) {
@@ -1524,168 +1657,155 @@ Page({
    * 发送语音消息
    */
   sendAudioMsg(res) {
+    var that = this;
     wx.showLoading({
       title: '发送中...',
+      mask: true,
     })
     let tempFilePath = res.tempFilePath
     let self = this
     // console.log(tempFilePath)
-    app.globalData.nim.sendFile({
-      scene: 'p2p',
-      to: self.data.chatTo,
-      type: 'audio',
-      custom: this.data.customString,
-      wxFilePath: tempFilePath,
-      done: function (err, msg) {
-        wx.hideLoading()
-        // 判断错误类型，并做相应处理
-        if (self.handleErrorAfterSend(err)) {
-          return
-        }
-        // console.log(msg)
-        // 刷新界面
-        let displayTimeHeader = self.judgeOverTwoMinute(msg.time)
-        self.setData({
-          messageArr: [...self.data.messageArr, {
-            type: 'audio',
-            text: '',
-            time: msg.time,
-            sendOrReceive: 'send',
-            displayTimeHeader,
-            audio: msg.file
-          }]
-        })
-
-        // 存储到全局 并 存储到最近会话列表中
-        self.saveMsgToGlobalAndRecent(msg, {
-          from: msg.from,
-          to: msg.chatTo,
-          type: msg.type,
-          scene: msg.scene,
-          text: msg.text,
-          file: msg.file,
-          sendOrReceive: 'send',
-          displayTimeHeader
-        })
-        app.globalData.subscriber.emit('UPDATE_RECENT_CHAT', { account: msg.to, time: msg.time, text: msg.text, type: msg.type }, true)
-        // 滚动到底部
-        self.scrollToBottom()
-      }
-    })
+    app.globalData.jim.sendSingleFile({
+      'target_username': self.data.toId,
+      'target_nickname': self.data.toNickName,
+      'file': tempFilePath,
+      'appkey': '20a1f8331c8e462116c4d24e',
+      'extras': { orderId: that.data.orderId },
+    }).onSuccess(function (data, msg) {
+      //data.code 返回码
+      //data.message 描述
+      //data.msg_id 发送成功后的消息id
+      //data.ctime_ms 消息生成时间,毫秒
+      //data.appkey 用户所属 appkey
+      //data.target_username 用户名
+      //msg.content 发送成功消息体
+      wx.hideLoading()
+      self.addSelfMsg(msg);
+    }).onFail(function (data) {
+      //同发送单聊文本
+      wx.hideLoading()
+    });
+   
   },
   /**
    * 发送位置消息
    */
   sendPositionMsg(res) {
-    let self = this
-    let { address, latitude, longitude } = res
-    app.globalData.nim.sendGeo({
-      scene: 'p2p',
-      to: self.data.chatTo,
-      geo: {
-        lng: longitude,
-        lat: latitude,
-        title: address
-      },
-      done: function (err, msg) {
-        // 判断错误类型，并做相应处理
-        if (self.handleErrorAfterSend(err)) {
-          return
-        }
-        // console.log(msg)
-        // 刷新界面
-        let displayTimeHeader = self.judgeOverTwoMinute(msg.time)
-        self.setData({
-          messageArr: [...self.data.messageArr, {
-            type: 'geo',
-            time: msg.time,
-            sendOrReceive: 'send',
-            displayTimeHeader,
-            geo: Object.assign({}, msg.geo)
-          }]
-        })
-
-        // 存储到全局 并 存储到最近会话列表中
-        self.saveMsgToGlobalAndRecent(msg, {
-          from: msg.from,
-          to: msg.chatTo,
-          type: msg.type,
-          scene: msg.scene,
-          text: msg.text,
-          geo: msg.geo,
-          sendOrReceive: 'send',
-          displayTimeHeader
-        })
-        app.globalData.subscriber.emit('UPDATE_RECENT_CHAT', { account: msg.to, time: msg.time, text: msg.text, type: msg.type }, true)
-        // 滚动到底部
-        self.scrollToBottom()
-      }
-    })
+    console.log(res);
+    // 发送消息
+    var that = this;
+    app.globalData.jim.sendSingleLocation({
+      'target_username': that.data.toId,
+      'target_nickname': that.data.toNickName,
+      'latitude': res.latitude,
+      'longitude': res.longitude,
+      'label': res.address,
+      'scale': 1,
+      'appkey': '20a1f8331c8e462116c4d24e',
+    }).onSuccess(function (data, msg) {
+      console.log("位置发送成功");
+      console.log(data);
+      //data.code 返回码
+      //data.message 描述
+      //data.msg_id 发送成功后的消息id
+      //data.ctime_ms 消息生成时间,毫秒
+      //data.appkey 用户所属 appkey
+      //data.target_username 用户名
+      //msg.content 发送成功消息体
+    }).onFail(function (data) {
+      //同发送单聊文本
+      console.log("位置发送失败");
+      console.log(data);
+    });
   },
   /**
    * 发送网络请求：发送文字
    */
   sendRequest(text) {
-    let self = this
-    app.globalData.nim.sendText({
-      scene: 'p2p',
-      to: this.data.chatTo,
-      text,
-      custom: this.data.customString,
-      done: (err, msg) => {
-        // 判断错误类型，并做相应处理
-        if (self.handleErrorAfterSend(err)) {
-          return
-        }
-        if (text === "发起语音通话"){
-          self.setData({
-            call_type: 0,
-            showCall: true
-          });
-        } else if (text === "发起视频通话"){
-          self.setData({
-            call_type: 1,
-            showCall: true
-          });
-        }
-       
-        // 刷新界面
-        let displayTimeHeader = self.judgeOverTwoMinute(msg.time)
-        self.setData({
-          inputValue: '',
-          messageArr: [...self.data.messageArr, {
-            text,
-            type: 'text',
-            time: msg.time,
-            sendOrReceive: 'send',
-            displayTimeHeader,
-            nodes: generateRichTextNode(text)
-          }]
-        })
-
-        // 存储到全局 并 存储到最近会话列表中
-        self.saveMsgToGlobalAndRecent(msg, {
-          from: msg.from,
-          to: msg.to,
-          type: msg.type,
-          scene: msg.scene,
-          text: msg.text,
-          sendOrReceive: 'send',
-          displayTimeHeader
-        })
-        // 最后一个参数表示，不更新未读数
-        app.globalData.subscriber.emit('UPDATE_RECENT_CHAT', { account: msg.to, time: msg.time, text: msg.text, type: msg.type }, true)
-        // 滚动到底部
-        self.scrollToBottom()
-      }
-    })
+    var that = this;
+    app.globalData.jim.sendSingleMsg({
+      'target_username': that.data.toId,
+      'target_nickname': that.data.toNickName,
+      'content': text,
+      'appkey': '20a1f8331c8e462116c4d24e',
+      'extras': { orderId: that.data.orderId },
+    }).onSuccess(function (data, msg) {
+      //data.code 返回码
+      //data.message 描述
+      //data.msg_id 发送成功后的消息 id
+      //data.ctime_ms 消息生成时间,毫秒
+      //data.appkey 用户所属 appkey
+      //data.target_username 用户名
+      //msg.content 发送成功消息体,见下面消息体详情
+      console.log(data);
+      console.log(msg);
+      that.setData({
+        inputValue: ''
+      });
+      that.addSelfMsg(msg);
+    }).onFail(function (data) {
+      //data.code 返回码
+      //data.message 描述
+      console.log(data);
+      wx.showToast({
+        title: 'fail',
+      })
+    });
   },
+
+  addSelfMsg: function (msg) {
+    var that = this;
+    msg.content.create_time = util.formatTime(new Date(msg.content.create_time));
+    that.data.messageArr.push(msg);
+    that.setData({
+      messageArr:that.data.messageArr
+    });
+    that.scrollToBottom();
+
+    var history = wx.getStorageSync("allMessage");
+    if (!history || history == '') {
+      history = [];
+    }
+    if (history.length == 0 || !that.hasOldMsg(history, that.data.toId)){
+      var item = {};
+      item.form_appkey = "20a1f8331c8e462116c4d24e";
+      item.from_username = that.data.toId;
+      item.msg_type = 3;
+      // var message = {};
+      // message.content = msg.content;
+      item.msgs = [msg];
+      history.push(msg);
+    }else{
+     for(var index in history){
+       if (history[index].from_username == that.data.toId){
+          var item = history[index].msgs[0];
+          item.content = msg.content;
+          history[index].msgs.push(item);
+        }
+     }
+    }
+    wx.setStorageSync("allMessage", history);
+   
+  },
+
+  hasOldMsg:function(data,id){
+    var that = this;
+    var has = false;
+    for (var item of data) {
+      if(item.from_username == id){
+        has = true;
+      }
+    }
+    return has;
+  },
+
   /**
    * 发送视频文件到nos
    */
   sendVideoToNos(res) {
     wx.showLoading({
       title: '发送中...',
+      mask: true,
     })
     // {duration,errMsg,height,size,tempFilePath,width}
     let self = this
@@ -1741,6 +1861,7 @@ Page({
   sendImageToNOS(res) {
     wx.showLoading({
       title: '发送中...',
+      mask: true,
     })
     let self = this
     let tempFilePaths = res.tempFilePaths
@@ -1751,7 +1872,6 @@ Page({
         type: 'image',
         scene: 'p2p',
         to: self.data.chatTo,
-        custom: this.data.customString,
         wxFilePath: tempFilePaths[i],
         done: function (err, msg) {
           wx.hideLoading()
@@ -1880,84 +2000,10 @@ Page({
     }
     return false
   },
-
   back: function () {
     app.globalData.isInChatPage = false;
     wx.navigateBack({
-
+      
     })
   },
-
-  showCall: function (e) {
-    var call_type = e.currentTarget.dataset.type;
-    if (call_type == 0) {
-      this.sendRequest('发起语音通话');
-    } else if (call_type == 1) {
-      this.sendRequest('发起视频通话');
-    }
-  },
-
-
-  switchCamera: function () {
-    console.log('切换摄像头');
-    var pushcontext = wx.createLivePusherContext('camera-push1')
-    this.data.frontCamera = !this.data.frontCamera;
-    this.setData({
-      frontCamera: this.data.frontCamera
-    })
-    pushcontext.switchCamera();
-  },
-
-  endCall: function () {
-    this.setData({
-      showInvite: false,
-      showCall: false,
-      calling: false
-    });
-    if (this.data.call_type == 0) {
-      this.sendRequest('结束语音通话');
-    } else if (this.data.call_type == 1) {
-      this.sendRequest('结束视频通话');
-    }
-  },
-
-  cancelInvite: function () {
-    this.setData({
-      showInvite: false
-    });
-    if (this.data.call_type == 0) {
-      this.sendRequest('拒绝语音通话');
-    } else if (this.data.call_type == 1) {
-      this.sendRequest('拒绝视频通话');
-    }
-
-  },
-
-  acceptInvite: function () {
-    this.setData({
-      showInvite: false,
-      calling: true
-    });
-
-    if (this.data.call_type == 0) {
-      this.sendRequest('接受语音通话');
-    } else if (this.data.call_type == 1) {
-      this.sendRequest('接受视频通话');
-    }
-  },
-
-  cancelCall: function () {
-    this.setData({
-      showCall: false,
-      showInvite: false,
-      calling: false
-    });
-    if (this.data.call_type == 0) {
-      this.sendRequest('取消语音通话');
-    } else if (this.data.call_type == 1) {
-      this.sendRequest('取消视频通话');
-    }
-  },
-
-
 })
