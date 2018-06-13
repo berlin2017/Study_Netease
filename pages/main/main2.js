@@ -143,7 +143,7 @@ Page({
         url: '../student/main',
       })
     } else {
-      that.registerIM();
+      this.registerIM();
     }
 
   },
