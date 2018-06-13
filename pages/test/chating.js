@@ -163,6 +163,13 @@ Page({
     if (Object.keys(loginMessageList).length != 0) {
       let chatToMessageList = loginMessageList[chatTo]
       for (let time in chatToMessageList) {
+        if (!chatToMessageList[time].custom){
+          continue;
+        }
+        let orderId = JSON.parse(chatToMessageList[time].custom).orderId;
+        if(orderId != self.data.orderId){
+          continue;
+        }
         let msgType = chatToMessageList[time].type
         if (msgType === 'text') {
           tempArr.push({
@@ -318,6 +325,13 @@ Page({
       this.foldInputArea()
       let loginUserAccount = app.globalData['loginUser']['account']
       let newMessage = app.globalData.messageList[loginUserAccount][account][time]
+      if (!newMessage.custom) {
+        return;
+      }
+      let orderId = JSON.parse(newMessage.custom).orderId;
+      if (orderId != self.data.orderId) {
+        return;
+      }
       let lastMessage = self.data.messageArr[self.data.messageArr.length - 1]
       let displayTimeHeader = ''
       if (lastMessage) {//拥有上一条消息
@@ -1274,7 +1288,7 @@ Page({
           })
         } else if (res.tapIndex == 1) {//查看云消息记录
           wx.navigateTo({
-            url: `../historyfromcloud/historyfromcloud?account=${self.data.chatTo}&chatToLogo=${encodeURIComponent(self.data.chatToLogo)}&loginAccountLogo=${encodeURIComponent(self.data.loginAccountLogo)}`,
+            url: `../historyfromcloud/historyfromcloud?account=${self.data.chatTo}&chatToLogo=${encodeURIComponent(self.data.chatToLogo)}&loginAccountLogo=${encodeURIComponent(self.data.loginAccountLogo)}&orderId=${self.data.orderId}`,
           })
         }
       }

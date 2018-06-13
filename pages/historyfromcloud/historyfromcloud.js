@@ -15,7 +15,8 @@ Page({
     limit: 100, // 每次查询结果
     historyAllDone: false, //是否已经加载完所有历史
     isVideoFullScreen: false,
-    title:'历史记录'
+    title:'历史记录',
+    orderId:null
   },
 
   /**
@@ -28,7 +29,8 @@ Page({
       chatTo: options.account,
       voiceIcon: voice,
       chatToLogo: decodeURIComponent(options.chatToLogo),
-      userLogo: decodeURIComponent(options.loginAccountLogo)
+      userLogo: decodeURIComponent(options.loginAccountLogo),
+      orderId : options.orderId
     })
   },
   /**
@@ -89,6 +91,18 @@ Page({
     let messageArr = [...self.data.messageArr] // 已经渲染完成数组
     // console.log(msgs)
     msgs.map((message,index) => {
+      if (!message.custom) {
+        return;
+      }
+      try{
+        let orderId = JSON.parse(message.custom).orderId;
+        if (orderId != self.data.orderId) {
+          return;
+        }
+      }catch(e){
+
+      }
+     
       // 类型 
       let type = ''
       if (message.type === 'custom' && JSON.parse(message['content'])['type'] === 1) {

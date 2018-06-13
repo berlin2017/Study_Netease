@@ -93,7 +93,13 @@ Page({
           // wx.navigateTo({
           //   url: '../teacher/main',
           // })
-          that.registerIM();
+          if (app.globalData.isLogin){
+            wx.reLaunch({
+              url: '../teacher/main',
+            })
+          }else{
+            that.registerIM();
+          }
         } else if (res.data.msg == 0) {
           wx.showToast({
             title: '账户审核中...',
@@ -132,7 +138,14 @@ Page({
 
   toStudentMain: function () {
     app.globalData.userType = 2;
-    this.registerIM();
+    if (app.globalData.isLogin) {
+      wx.switchTab({
+        url: '../student/main',
+      })
+    } else {
+      that.registerIM();
+    }
+
   },
 
   initIM:function(e){
@@ -180,10 +193,6 @@ Page({
       },
       fail: function (e) {
         console.log(e);
-        new IMEventHandler({
-          token: 'ah123456',
-          account: app.globalData.myUser.openId
-        })
       },
     })
   },

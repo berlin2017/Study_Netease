@@ -87,7 +87,7 @@ export default class IMEventHandler {
     //   url: '../contact/contact',
     // })
     // // 设置登录状态
-    // app.globalData.isLogin = false
+    app.globalData.isLogin = false
     // wx.switchTab({
     //   url: '../recentchat/recentchat',
     // })
@@ -154,36 +154,36 @@ export default class IMEventHandler {
         })
       }
     })
-    app.globalData.nim.subscribeEvent({
-      type: 1,// type 1 为登录事件，用于同步多端登录状态
-      accounts: accounts,
-      subscribeTime: 3600 * 24 * 30,
-      // 同步订阅事件，保证每次登录时会收到推送消息
-      sync: true,
-      done: function onSubscribeEvent(err, res) {
-        if (err) {
-          console.error('订阅好友事件失败', err)
-          // 二次订阅
-          app.globalData.nim.subscribeEvent({
-            type: 1,// type 1 为登录事件，用于同步多端登录状态
-            accounts: accounts,
-            subscribeTime: 3600 * 24 * 30,
-            // 同步订阅事件，保证每次登录时会收到推送消息
-            sync: true,
-            done: function onSubscribeEvent(err, res) {
-              if (err) {
-                console.error('订阅好友事件失败', err)
-                wx.showToast({
-                  title: '请检查网络后，重试！',
-                  duration: 1500,
-                  icon: 'none'
-                })
-              }
-            }
-          })
-        }
-      }
-    });
+    // app.globalData.nim.subscribeEvent({
+    //   type: 1,// type 1 为登录事件，用于同步多端登录状态
+    //   accounts: accounts,
+    //   subscribeTime: 3600 * 24 * 30,
+    //   // 同步订阅事件，保证每次登录时会收到推送消息
+    //   sync: true,
+    //   done: function onSubscribeEvent(err, res) {
+    //     if (err) {
+    //       console.error('订阅好友事件失败', err)
+    //       // 二次订阅
+    //       app.globalData.nim.subscribeEvent({
+    //         type: 1,// type 1 为登录事件，用于同步多端登录状态
+    //         accounts: accounts,
+    //         subscribeTime: 3600 * 24 * 30,
+    //         // 同步订阅事件，保证每次登录时会收到推送消息
+    //         sync: true,
+    //         done: function onSubscribeEvent(err, res) {
+    //           if (err) {
+    //             console.error('订阅好友事件失败', err)
+    //             wx.showToast({
+    //               title: '请检查网络后，重试！',
+    //               duration: 1500,
+    //               icon: 'none'
+    //             })
+    //           }
+    //         }
+    //       })
+    //     }
+    //   }
+    // });
   }
   /**
    * 设置订阅后，服务器消息事件回调
@@ -382,7 +382,8 @@ export default class IMEventHandler {
       geo: Object.assign({}, msg.geo || {}),
       content: msg['content'] || '',
       tip: msg['tip'] || '',
-      sendOrReceive
+      sendOrReceive,
+      custom:msg.custom
     }
     app.globalData.rawMessageList[account] = app.globalData.rawMessageList[account] || {}
     app.globalData.rawMessageList[account][msg.time] = deepClone(msg)
@@ -399,7 +400,8 @@ export default class IMEventHandler {
       geo: Object.assign({}, msg.geo || {}),
       content: msg['content'] || '',
       tip: msg['tip'] || '',
-      sendOrReceive
+      sendOrReceive,
+      custom: msg.custom
     }
     // 发送收到消息更新消息
     app.globalData.subscriber.emit('RECEIVE_P2P_MESSAGE', { account: account, time: msg.time })
@@ -723,6 +725,26 @@ export default class IMEventHandler {
     // console.log('onOfflineMsgs', obj)
     // 存储到全局
     msgs.map(msg => {
+      
+      wx.showModal({
+        title: '新消息',
+        content: '你有离线消息是否查看',
+        success: function (res) {
+          if (res.confirm) {
+            console.log('用户点击确定')
+            if (newMessage.custom) {
+              let orderId = JSON.parse(newMessage.custom).orderId;
+              wx.navigateTo({
+                url: '../test/chating' + '?id=' + newMessage.from + '&type=' + app.globalData.userType + '&orderId=' + orderId,
+              })
+            }
+
+          } else if (res.cancel) {
+            console.log('用户点击取消')
+          }
+        }
+      })
+      
       let sendOrReceive = ''
       let account = ''
       let type = ''
@@ -830,12 +852,12 @@ export default class IMEventHandler {
    * onConnect成功后会开始同步，进入此表示数据同步完成
    */
   onSyncDone() {
-    // console.log('Sync Done')
+    console.log('Sync Done')
     // 设置登录状态
-    app.globalData.isLogin = false
+    app.globalData.isLogin = true
     wx.hideLoading()
     if (app.globalData.userType == 1){
-      wx.navigateTo({
+      wx.reLaunch({
         url: '../teacher/main',
       })
     }else{
