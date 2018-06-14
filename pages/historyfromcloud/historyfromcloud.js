@@ -157,8 +157,8 @@ Page({
     // }
     self.setData({
       messageArr,
-      // lastMsgId: messageArr[0].idServer,
-      // endTime: messageArr[0].time
+      lastMsgId: messageArr[0].idServer,
+      endTime: messageArr[0].time
     })
     // if (self.data.messageArr.length <= self.data.limit) { // 第一次加载，滚动至底部
     //   setTimeout(() => {

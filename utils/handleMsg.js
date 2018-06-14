@@ -43,7 +43,8 @@ function handlerMsg(newMessage){
       }
     })
   }
- 
+  
+  let loginUserAccount = app.globalData['loginUser']['account']
   // 添加全局数据中 消息时间头，同时存储到最近会话列表中
   let loginMessageList = app.globalData.messageList[loginUserAccount]
   let recentChatList = app.globalData.recentChatList

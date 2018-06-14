@@ -34,7 +34,140 @@ Page({
     frontCamera: true,
     user_type: null,
     customString:'',
+    lastMsgId: '', // 上次查询的最后一条消息的idServer,第一次不用,
+    endTime: '', // 存储上次加载的最后一条消息的时间，后续加载更多使用
   },
+
+  onShow(){
+   
+  },
+
+  /**
+ * 下拉刷新钩子
+ */
+  onPullDownRefresh() {
+    var that = this;
+    if (that.data.historyAllDone) {
+      wx.stopPullDownRefresh()
+    } else {
+      app.globalData.nim.getHistoryMsgs({
+        scene: 'p2p',
+        to: that.data.chatTo,
+        limit: 20,
+        asc: true, // 时间正序排序
+        lastMsgId: that.data.lastMsgId,
+        endTime: that.data.endTime,
+        done: that.getHistoryMsgsDone
+      });
+    }
+  },
+
+  /**
+   * 历史消息获取成功回调
+   */
+  getHistoryMsgsDone(err, obj) {
+    wx.hideLoading()
+    if (err) {
+      console.log(err)
+      wx.showToast({
+        title: '请检查网络后重试',
+        duration: 1500,
+        icon: 'none'
+      })
+      return
+    }
+    this.formatMsgs(obj.msgs)
+  },
+  /**
+   * 格式化收到的消息，以便显示
+   */
+  formatMsgs(msgs) {
+    let self = this
+    let resultArr = [] // 存储结果数组
+    let messageArr = [] // 已经渲染完成数组
+    // console.log(msgs)
+    msgs.map((message, index) => {
+      if (!message.custom) {
+        return;
+      }
+      try {
+        let orderId = JSON.parse(message.custom).orderId;
+        if (orderId != self.data.orderId) {
+          return;
+        }
+      } catch (e) {
+
+      }
+
+      // 类型 
+      let type = ''
+      if (message.type === 'custom' && JSON.parse(message['content'])['type'] === 1) {
+        type = '猜拳'
+      } else if (message.type === 'custom' && JSON.parse(message['content'])['type'] === 3) {
+        type = '贴图表情'
+      } else {
+        type = message.type
+      }
+      // 时间头部
+      let displayTimeHeader = ''
+      if (index === 0) {
+        displayTimeHeader = calcTimeHeader(message.time)
+      } else {
+        let delta = message.time - msgs[index - 1].time
+        if (delta > 2 * 60 * 1000) { // 超过两分钟，才计算
+          displayTimeHeader = calcTimeHeader(message.time)
+        }
+      }
+      // 富文本节点信息
+      let nodes = []
+      if (type === 'text') {
+        nodes = generateRichTextNode(message.text)
+      } else if (type === 'tip') {
+        nodes = [{
+          type: 'text',
+          text: message.tip
+        }]
+      } else if (type === 'image') {
+        nodes = generateImageNode(message.file)
+      } else if (type === '贴图表情') {
+        nodes = generateImageNode(generateBigEmojiImageFile(JSON.parse(message.content)))
+      } else if (type === '猜拳') {
+        nodes = generateImageNode(generateFingerGuessImageFile(JSON.parse(message.content).data.value))
+      }
+      messageArr.push({
+        type,
+        text: message.text,
+        time: message.time,
+        sendOrReceive: message.from === self.data.chatTo ? 'receive' : 'send',
+        displayTimeHeader,
+        geo: message.geo || null,
+        file: message.file || null,
+        nodes
+      })
+    })
+    // console.log(messageArr)
+    // if(msgs.length < self.data.limit) { // 返回的数量小于预期加载数量，加载结束
+    //   self.setData({
+    //     historyAllDone: true
+    //   })
+    // }
+    self.setData({
+      messageArr,
+      lastMsgId: messageArr[0].idServer,
+      endTime: messageArr[0].time
+    })
+    // if (self.data.messageArr.length <= self.data.limit) { // 第一次加载，滚动至底部
+    //   setTimeout(() => {
+    //     self.scrollToBottom()
+    //   }, 200)
+    // } else { // 加载更多，无须滚动
+
+    // }
+    setTimeout(() => {
+      self.scrollToBottom()
+    }, 200)
+  },
+
   onUnload() {
     // 页面卸载，移除事件监听，原因：此页面为共享页面，可能会触发多次操作
     app.globalData.subscriber.un('RECEIVE_P2P_MESSAGE')
@@ -131,10 +264,25 @@ Page({
     })
   },
 
+  getHistory:function(){
+    var that = this;
+    wx.showLoading({
+      title: '加载历史消息中',
+    })
+    app.globalData.nim.getHistoryMsgs({
+      scene: 'p2p',
+      to: that.data.chatTo,
+      limit: 20,
+      asc: true,// 时间正序排序
+      done: that.getHistoryMsgsDone
+    })
+  },
+
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad: function (options) {
+
     app.globalData.isInChatPage = true;
     let order_obj = {'orderId':options.orderId}
     this.setData({
@@ -156,132 +304,137 @@ Page({
       chatTo = options.id.toLowerCase();
     // 更新当前会话对象账户
     app.globalData.currentChatTo = chatTo
+    self.setData({
+      chatTo:chatTo
+    });
+
+    self.getHistory();
    
-    // 渲染应用期间历史消息
-    let loginUserAccount = app.globalData['loginUser']['account']
-    let loginMessageList = app.globalData.messageList[loginUserAccount]
-    if (Object.keys(loginMessageList).length != 0) {
-      let chatToMessageList = loginMessageList[chatTo]
-      for (let time in chatToMessageList) {
-        if (!chatToMessageList[time].custom){
-          continue;
-        }
-        let orderId = JSON.parse(chatToMessageList[time].custom).orderId;
-        if(orderId != self.data.orderId){
-          continue;
-        }
-        let msgType = chatToMessageList[time].type
-        if (msgType === 'text') {
-          tempArr.push({
-            type: 'text',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateRichTextNode(chatToMessageList[time].text)
-          })
-        } else if (msgType === 'image') {
-          tempArr.push({
-            type: 'image',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(chatToMessageList[time].file)
-          })
-        } else if (msgType === 'geo') {
-          tempArr.push({
-            type: 'geo',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            geo: chatToMessageList[time].geo
-          })
-        } else if (msgType === 'audio') {
-          tempArr.push({
-            type: 'audio',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            audio: chatToMessageList[time].file
-          })
-        } else if (msgType === 'video') {
-          tempArr.push({
-            type: 'video',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            video: chatToMessageList[time].file
-          })
-        } else if (msgType === '猜拳') {
-          let value = JSON.parse(chatToMessageList[time]['content']).data.value
-          tempArr.push({
-            type: '猜拳',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(generateFingerGuessImageFile(value))
-          })
-        } else if (msgType === '贴图表情') {
-          let content = JSON.parse(chatToMessageList[time]['content'])
-          tempArr.push({
-            type: '贴图表情',
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: generateImageNode(generateBigEmojiImageFile(content))
-          })
-        } else if (msgType === 'tip') {
-          tempArr.push({
-            type: 'tip',
-            text: chatToMessageList[time].tip,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: chatToMessageList[time].tip
-            }]
-          })
-        } else if (msgType === 'file' || msgType === 'robot') {
-          let text = msgType === 'file' ? '文件消息' : '机器人消息'
-          tempArr.push({
-            type: msgType,
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: `[${text}],请到手机或电脑客户端查看`
-            }]
-          })
-        } else if (msgType === '白板消息' || msgType === '阅后即焚') {
-          tempArr.push({
-            type: msgType,
-            text: chatToMessageList[time].text,
-            time,
-            sendOrReceive: chatToMessageList[time].sendOrReceive,
-            displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
-            nodes: [{
-              type: 'text',
-              text: `[${msgType}],请到手机或电脑客户端查看`
-            }]
-          })
-        }
-      }
-    }
-    this.setData({
-      chatTo,
-      messageArr: tempArr,
-      chatWrapperMaxHeight,
-      iconBase64Map: iconBase64Map
-    })
+    // // 渲染应用期间历史消息
+    // let loginUserAccount = app.globalData['loginUser']['account']
+    // let loginMessageList = app.globalData.messageList[loginUserAccount]
+    // if (Object.keys(loginMessageList).length != 0) {
+    //   let chatToMessageList = loginMessageList[chatTo]
+    //   for (let time in chatToMessageList) {
+    //     if (!chatToMessageList[time].custom){
+    //       continue;
+    //     }
+    //     let orderId = JSON.parse(chatToMessageList[time].custom).orderId;
+    //     if(orderId != self.data.orderId){
+    //       continue;
+    //     }
+    //     let msgType = chatToMessageList[time].type
+    //     if (msgType === 'text') {
+    //       tempArr.push({
+    //         type: 'text',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: generateRichTextNode(chatToMessageList[time].text)
+    //       })
+    //     } else if (msgType === 'image') {
+    //       tempArr.push({
+    //         type: 'image',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: generateImageNode(chatToMessageList[time].file)
+    //       })
+    //     } else if (msgType === 'geo') {
+    //       tempArr.push({
+    //         type: 'geo',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         geo: chatToMessageList[time].geo
+    //       })
+    //     } else if (msgType === 'audio') {
+    //       tempArr.push({
+    //         type: 'audio',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         audio: chatToMessageList[time].file
+    //       })
+    //     } else if (msgType === 'video') {
+    //       tempArr.push({
+    //         type: 'video',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         video: chatToMessageList[time].file
+    //       })
+    //     } else if (msgType === '猜拳') {
+    //       let value = JSON.parse(chatToMessageList[time]['content']).data.value
+    //       tempArr.push({
+    //         type: '猜拳',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: generateImageNode(generateFingerGuessImageFile(value))
+    //       })
+    //     } else if (msgType === '贴图表情') {
+    //       let content = JSON.parse(chatToMessageList[time]['content'])
+    //       tempArr.push({
+    //         type: '贴图表情',
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: generateImageNode(generateBigEmojiImageFile(content))
+    //       })
+    //     } else if (msgType === 'tip') {
+    //       tempArr.push({
+    //         type: 'tip',
+    //         text: chatToMessageList[time].tip,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: [{
+    //           type: 'text',
+    //           text: chatToMessageList[time].tip
+    //         }]
+    //       })
+    //     } else if (msgType === 'file' || msgType === 'robot') {
+    //       let text = msgType === 'file' ? '文件消息' : '机器人消息'
+    //       tempArr.push({
+    //         type: msgType,
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: [{
+    //           type: 'text',
+    //           text: `[${text}],请到手机或电脑客户端查看`
+    //         }]
+    //       })
+    //     } else if (msgType === '白板消息' || msgType === '阅后即焚') {
+    //       tempArr.push({
+    //         type: msgType,
+    //         text: chatToMessageList[time].text,
+    //         time,
+    //         sendOrReceive: chatToMessageList[time].sendOrReceive,
+    //         displayTimeHeader: chatToMessageList[time].displayTimeHeader || '',
+    //         nodes: [{
+    //           type: 'text',
+    //           text: `[${msgType}],请到手机或电脑客户端查看`
+    //         }]
+    //       })
+    //     }
+    //   }
+    // }
+    // this.setData({
+    //   chatTo,
+    //   messageArr: tempArr,
+    //   chatWrapperMaxHeight,
+    //   iconBase64Map: iconBase64Map
+    // })
     // 重新计算所有时间
     self.reCalcAllMessageTime()
     // 滚动到底部
@@ -670,7 +823,8 @@ Page({
     let self = this
     if (message.sendOrReceive === 'send') { // 自己消息
       wx.showActionSheet({
-        itemList: ['删除', '转发', '撤回'],
+        // itemList: ['删除', '转发', '撤回'],
+        itemList: ['删除','撤回'],
         success: function (res) {
           switch (res.tapIndex) {
             case 0:

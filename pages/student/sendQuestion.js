@@ -19,6 +19,7 @@ Page({
     allSubjects:[],
     userInfo:null,
     teacher:{},
+    value:0,
   },
 
   changeGrade:function(e){
@@ -38,13 +39,16 @@ Page({
       }
     }
     this.setData({
-      subjects:array
+      subjects:array,
+      value: array[this.data.currentSubject].min_money
     });
   },
 
   changeSubject: function (e) {
+    var that = this;
     this.setData({
-      currentSubject: e.detail.value
+      currentSubject: e.detail.value,
+      value: that.data.subjects[e.detail.value].min_money
     });
   },
 
@@ -157,7 +161,8 @@ Page({
           }
         }
         that.setData({
-          subjects: array
+          subjects: array,
+          value: array[0].min_money
         });
       },
       fail: function (data) {
